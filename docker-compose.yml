@@ -1,0 +1,114 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api-container
+    environment:
+      DB_SERVER: "sqlserver"
+      DB_USER: "sa"
+      DB_PASSWORD: "Admin@12345"
+      DB_DATABASE: "UsuariosDb"
+      # Adicione outras variáveis de ambiente necessárias para Redis e RabbitMQ aqui
+    ports:
+      - "5000:8080"
+    networks:
+      - app_network
+    depends_on:
+      redis:
+        condition: service_healthy
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: always
+
+  redis:
+    image: redis:7-alpine # Use uma imagem mais leve
+    container_name: redis-container
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - app_network
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver-container
+    environment:
+      SA_PASSWORD: "Admin@12345"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
+    restart: always
+    networks:
+      - app_network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/opt/mssql-tools/bin/sqlcmd",
+          "-S",
+          "localhost",
+          "-U",
+          "sa",
+          "-P",
+          "Admin@12345",
+          "-Q",
+          "SELECT 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20 # Aumentei as tentativas
+      start_period: 120s # Aumentei o período de inicialização
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq-container
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: always
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.Worker
+    container_name: worker-container
+    networks:
+      - app_network
+    depends_on:
+      redis:
+        condition: service_healthy
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  sql_data:
+  rabbitmq_data:
