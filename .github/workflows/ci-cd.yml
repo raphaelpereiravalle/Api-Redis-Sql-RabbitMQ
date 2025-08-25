@@ -1,0 +1,74 @@
+name: .NET - Redis - SqlServer - RabbitMQ
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          SA_PASSWORD: "Admin@12345"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd=" /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Admin@12345 -Q 'SELECT 1' || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      rabbitmq:
+        image: rabbitmq:3-management
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd="rabbitmq-diagnostics -q ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restaurar dependências
+        run: dotnet restore
+
+      - name: Build do projeto
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Rodar testes
+        run: dotnet test --configuration Release --no-build --verbosity normal
+        env:
+          ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=UsuariosDb;User Id=sa;Password=Admin@12345;TrustServerCertificate=True;"
+          Redis__Host: "localhost:6379"
+          RabbitMq__Host: "localhost"
+          RabbitMq__Port: "5672"
+          RabbitMq__User: "guest"
+          RabbitMq__Password: "guest"
