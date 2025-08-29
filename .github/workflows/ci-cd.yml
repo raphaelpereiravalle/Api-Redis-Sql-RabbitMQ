@@ -24,6 +24,17 @@ jobs:
           release-branch: main
           prefix: v
 
+      - name: Tag do repositorio
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "::notice:: ${{ steps.version.outputs.version }}"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          git config --global user.name "${{ github.actor }}"
+          git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
+          git push --tags
+        if: github.ref == 'refs/heads/main'
+
   build:
     needs: versionamento
     runs-on: ubuntu-latest
@@ -44,17 +55,20 @@ jobs:
         run: |
           dotnet restore ./ApiRedisSqlRabbitMQ.sln
 
-      - name: Build do projeto
-        run: dotnet build --configuration Release --no-restore ./ApiRedisSqlRabbitMQ.sln
+      - name: Build
+        run: |
+          dotnet build --configuration Release --no-restore ./ApiRedisSqlRabbitMQ.sln
 
       - name: Test
-        run: dotnet test --no-build --no-restore ./ApiRedisSqlRabbitMQ.sln --configuration Release --logger trx --results-directory "TestResults"
+        run: |
+          dotnet test --no-build --no-restore ./ApiRedisSqlRabbitMQ.sln --configuration Release --logger trx --results-directory "TestResults"
+        if: github.ref != 'refs/heads/main'
 
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: dotnet-test-results
           path: TestResults
+        if: github.ref != 'refs/heads/main'
 
         # deploy:
   #     runs-on: ubuntu-latest
