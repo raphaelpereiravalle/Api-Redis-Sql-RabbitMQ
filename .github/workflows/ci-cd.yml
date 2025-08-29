@@ -38,10 +38,11 @@ jobs:
         with:
           dotnet-version: "8.0.x"
           cache: true
-          cache-dependency-path: ./src/**/packages.lock.json
+          cache-dependency-path: ./**/packages.lock.json
 
-      - name: Restaurar dependências
-        run: dotnet restore
+      - name: Restaure
+        run: |
+          dotnet restore ./ApiRedisSqlRabbitMQ.sln
 
       - name: Build do projeto
         run: dotnet build --configuration Release --no-restore
