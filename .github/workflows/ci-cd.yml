@@ -70,7 +70,23 @@ jobs:
           path: TestResults
         if: github.ref != 'refs/heads/main'
 
-        # deploy:
+  dependency-check:
+    name: Dependency Check
+    needs: versionamento
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/dependency-review-action@v4 #Ele verifica solicitações de pull para identificar quaisquer dependências novas ou atualizadas que estejam sendo introduzidas no projeto
+        with:
+          comment-summary-in-pr: always
+    if:
+      github.ref != 'refs/heads/main'
+
+      # deploy:
   #     runs-on: ubuntu-latest
 
   #     services:
