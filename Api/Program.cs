@@ -24,17 +24,19 @@ var connectionString = $"Server={dbServer},1433;Database={dbDatabase};User Id={d
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// SQL Server
-//builder.Services.AddDbContext<AppDbContext>(options =>
-//options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-
 // Redis
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
 {
-    var config = ConfigurationOptions.Parse(builder.Configuration["Redis:Connection"]);
-    config.AbortOnConnectFail = false;
-    return ConnectionMultiplexer.Connect(config);
+  var redisConnection = builder.Configuration["Redis:Connection"];
+  if (string.IsNullOrEmpty(redisConnection))
+  {
+      throw new InvalidOperationException("A configuração Redis:Connection não foi encontrada.");
+  }
+
+  var config = ConfigurationOptions.Parse(redisConnection);
+
+  config.AbortOnConnectFail = false;
+  return ConnectionMultiplexer.Connect(config);
 });
 
 builder.Services.AddScoped<RedisService>();
@@ -53,15 +55,15 @@ using (var scope = app.Services.CreateScope())
     dbContext.Database.Migrate();
 }
 
-//if (app.Environment.IsDevelopment())
-//{
+if (app.Environment.IsDevelopment())
+{
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Minha API V1");
         c.RoutePrefix = string.Empty; // Abre o Swagger na raiz /
     });
-//}
+}
 
 app.UseAuthorization();
 app.MapControllers();

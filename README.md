@@ -1,4 +1,4 @@
-# 📦 UsuarioApiRedis
+# 📦 Api-Redis-Sql-RabbitMQ
 
 API RESTful em .NET 8 com arquitetura em camadas, utilizando:
 
@@ -37,9 +37,12 @@ API RESTful em .NET 8 com arquitetura em camadas, utilizando:
 docker-compose up --build
 ```
 
-## Estrutura
+---
 
-UsuarioApiRedis/
+## 📂 Estrutura
+
+```
+Api-Redis-Sql-RabbitMQ/
 ├── Api/ # API REST
 ├── Application/ # Lógica de negócio
 ├── Domain/ # Entidades e interfaces
@@ -50,6 +53,9 @@ UsuarioApiRedis/
 ├── Dockerfile.Worker
 ├── README.md
 └── .gitignore
+```
+
+---
 
 API: <http://localhost:5000/swagger>
 
