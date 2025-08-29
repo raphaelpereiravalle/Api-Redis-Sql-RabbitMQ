@@ -37,7 +37,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
-          cache: true
+          cache: "true"
           cache-dependency-path: ./**/packages.lock.json
 
       - name: Restaure
@@ -45,12 +45,13 @@ jobs:
           dotnet restore ./ApiRedisSqlRabbitMQ.sln
 
       - name: Build do projeto
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build --configuration Release --no-restore ./ApiRedisSqlRabbitMQ.sln
 
       - name: Test
-        run: dotnet test --no-build --no-restore --configuration Release --logger trx --results-directory "TestResults"
+        run: dotnet test --no-build --no-restore ./ApiRedisSqlRabbitMQ.sln --configuration Release --logger trx --results-directory "TestResults"
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: dotnet-test-results
           path: TestResults
