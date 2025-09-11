@@ -1,13 +1,12 @@
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 
-COPY ./app/Api ./app
-COPY ./app/web ./app/wwwroot
+COPY ./ApiRedisSqlRabbitMQ ./app
 
 WORKDIR /app
 EXPOSE 8080
 
 ENV ASPNETCORE_URLS=http://+:8000
-ENTRYPOINT ["dotnet", "Api.dll"]
+ENTRYPOINT ["dotnet", "ApiRedisSqlRabbitMQ.dll"]
 
 # FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 # WORKDIR /src
