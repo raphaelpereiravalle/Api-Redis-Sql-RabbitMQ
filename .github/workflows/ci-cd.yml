@@ -92,7 +92,7 @@ jobs:
         if: github.ref != 'refs/heads/main'
 
       - name: Publish
-        run: dotnet publish ./api/Api.csproj --no-restore --no-build --configuration Release --output ./publish
+        run: dotnet publish ./Api/Api.csproj --no-restore --no-build --configuration Release --output ./publish
 
       - name: Tag published version
         uses: restackio/update-json-file-action@2.1
@@ -122,6 +122,7 @@ jobs:
     if: github.ref != 'refs/heads/main'
 
   code-security-check:
+    name: Code Security Check
     needs: versionamento
     runs-on: ubuntu-latest
     permissions:
