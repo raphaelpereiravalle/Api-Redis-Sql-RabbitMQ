@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     name: Versionamento
 
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,7 +38,7 @@ jobs:
           git push --tags
         if: github.ref == 'refs/heads/main'
 
-  build:
+  backend-build-and-test:
     needs: versionamento
     runs-on: ubuntu-latest
     name: Backend Build and Test
@@ -69,6 +72,21 @@ jobs:
           name: dotnet-test-results
           path: TestResults
         if: github.ref != 'refs/heads/main'
+
+      - name: Publish
+        run: dotnet publish ./src/api/Api.csproj --no-restore --no-build --configuration Release --output ./publish
+
+      - name: Tag published version
+        uses: restackio/update-json-file-action@2.1
+        with:
+          file: ./publish/appsettings.json
+          fields: '{"MY_APP_VERSION": "${{ needs.versionamento.outputs.version }}"}'
+
+      - name: Upload dotnet artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: api
+          path: ./publish
 
   dependency-check:
     name: Dependency Check
@@ -108,6 +126,40 @@ jobs:
         with:
           category: "/language:csharp"
 
+  build-docker-image:
+    name: Packing and Publish
+    needs: [versionamento, backend-build-and-test]
+    runs-on: ubuntu-latest
+
+    env:
+      version: ${{ needs.versionamento.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: app
+          merge-multiple: false
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ vars.DOCKERHUB_REPOSITORY }}:${{ env.version }} .
+
+      - name: Tag Docker image as Latest
+        run: |
+          docker tag ${{ vars.DOCKERHUB_REPOSITORY }}:${{ env.version }} ${{ vars.DOCKERHUB_REPOSITORY }}:latest
+        if: github.ref == 'refs/heads/main'
+
+      - name: Docker Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker Push
+        run: |
+          docker push --all-tags raphaelpereiravalle/ApiRedisSqlRabbitMQ
       # deploy:
   #     runs-on: ubuntu-latest
 
