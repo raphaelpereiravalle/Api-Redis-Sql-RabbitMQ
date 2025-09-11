@@ -5,11 +5,18 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   versionamento:
     runs-on: ubuntu-latest
     name: Versionamento
+    permissions:
+      contents: write
 
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -36,6 +43,17 @@ jobs:
           git config --global user.name "${{ github.actor }}"
           git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
           git push --tags
+        if: github.ref == 'refs/heads/main'
+
+      - name: Create file version
+        run: |
+          echo ${{ steps.version.outputs.version }} > versao.txt
+        if: github.ref == 'refs/heads/main'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: versao
+          path: versao.txt
         if: github.ref == 'refs/heads/main'
 
   backend-build-and-test:
