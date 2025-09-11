@@ -83,8 +83,30 @@ jobs:
       - uses: actions/dependency-review-action@v4 #Ele verifica solicitações de pull para identificar quaisquer dependências novas ou atualizadas que estejam sendo introduzidas no projeto
         with:
           comment-summary-in-pr: always
-    if:
-      github.ref != 'refs/heads/main'
+    if: github.ref != 'refs/heads/main'
+
+  code-security-check:
+    needs: versionamento
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        name: Initialize CodeQL - Backend
+        with:
+          languages: csharp
+          build-mode: autobuild
+
+      - uses: github/codeql-action/analyze@v3
+        name: Analyze CodeQL - Backend
+        with:
+          category: "/language:csharp"
 
       # deploy:
   #     runs-on: ubuntu-latest
