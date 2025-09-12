@@ -163,11 +163,11 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ vars.DOCKERHUB_REPOSITORY }}:${{ env.version }} .
+          docker build -t ${{ vars.DOCKERHUB_REPOSITORY }}/api-redis-sql-rabbitmq:${{ env.version }} .
 
       - name: Tag Docker image as Latest
         run: |
-          docker tag ${{ vars.DOCKERHUB_REPOSITORY }}:${{ env.version }} ${{ vars.DOCKERHUB_REPOSITORY }}:latest
+          docker tag ${{ vars.DOCKERHUB_REPOSITORY }}/api-redis-sql-rabbitmq:${{ env.version }} ${{ vars.DOCKERHUB_REPOSITORY }}/api-redis-sql-rabbitmq:latest
         if: github.ref == 'refs/heads/main'
 
       - name: Docker Login
@@ -178,4 +178,4 @@ jobs:
 
       - name: Docker Push
         run: |
-          docker push --all-tags ${{ vars.DOCKERHUB_REPOSITORY }}
+          docker push --all-tags ${{ vars.DOCKERHUB_REPOSITORY }}/api-redis-sql-rabbitmq
