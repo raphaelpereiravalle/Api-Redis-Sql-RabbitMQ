@@ -5,11 +5,21 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   versionamento:
     runs-on: ubuntu-latest
     name: Versionamento
+    permissions:
+      contents: write
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout code
@@ -35,7 +45,18 @@ jobs:
           git push --tags
         if: github.ref == 'refs/heads/main'
 
-  build:
+      - name: Create file version
+        run: |
+          echo ${{ steps.version.outputs.version }} > versao.txt
+        if: github.ref == 'refs/heads/main'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: versao
+          path: versao.txt
+        if: github.ref == 'refs/heads/main'
+
+  backend-build-and-test:
     needs: versionamento
     runs-on: ubuntu-latest
     name: Backend Build and Test
@@ -70,6 +91,21 @@ jobs:
           path: TestResults
         if: github.ref != 'refs/heads/main'
 
+      - name: Publish
+        run: dotnet publish ./Api/Api.csproj --no-restore --no-build --configuration Release --output ./publish
+
+      - name: Tag published version
+        uses: restackio/update-json-file-action@2.1
+        with:
+          file: ./publish/appsettings.json
+          fields: '{"MY_APP_VERSION": "${{ needs.versionamento.outputs.version }}"}'
+
+      - name: Upload dotnet artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: api
+          path: ./publish
+
   dependency-check:
     name: Dependency Check
     needs: versionamento
@@ -86,6 +122,7 @@ jobs:
     if: github.ref != 'refs/heads/main'
 
   code-security-check:
+    name: Code Security Check
     needs: versionamento
     runs-on: ubuntu-latest
     permissions:
@@ -108,68 +145,37 @@ jobs:
         with:
           category: "/language:csharp"
 
-      # deploy:
-  #     runs-on: ubuntu-latest
+  build-docker-image:
+    name: Packing and Publish
+    needs: [versionamento, backend-build-and-test]
+    runs-on: ubuntu-latest
 
-  #     services:
-  #       redis:
-  #         image: redis:7-alpine
-  #         ports:
-  #           - 6379:6379
-  #         options: >-
-  #           --health-cmd="redis-cli ping || exit 1"
-  #           --health-interval=10s
-  #           --health-timeout=5s
-  #           --health-retries=5
+    env:
+      version: ${{ needs.versionamento.outputs.version }}
 
-  #       sqlserver:
-  #         image: mcr.microsoft.com/mssql/server:2022-latest
-  #         env:
-  #           ACCEPT_EULA: "Y"
-  #           SA_PASSWORD: "Admin@12345"
-  #         ports:
-  #           - 1433:1433
-  #         options: >-
-  #           --health-cmd=" /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Admin@12345 -Q 'SELECT 1' || exit 1"
-  #           --health-interval=10s
-  #           --health-timeout=5s
-  #           --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
 
-  #       rabbitmq:
-  #         image: rabbitmq:3-management
-  #         env:
-  #           RABBITMQ_DEFAULT_USER: guest
-  #           RABBITMQ_DEFAULT_PASS: guest
-  #         ports:
-  #           - 5672:5672
-  #           - 15672:15672
-  #         options: >-
-  #           --health-cmd="rabbitmq-diagnostics -q ping"
-  #           --health-interval=10s
-  #           --health-timeout=5s
-  #           --health-retries=5
+      - uses: actions/download-artifact@v4
+        with:
+          path: app
+          merge-multiple: false
 
-  #     steps:
-  #       - name: Checkout código
-  #         uses: actions/checkout@v4
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ vars.DOCKERHUB_REPOSITORY }}/api-redis-sql-rabbitmq:${{ env.version }} .
 
-  #       - name: Setup .NET 8
-  #         uses: actions/setup-dotnet@v4
-  #         with:
-  #           dotnet-version: "8.0.x"
+      - name: Tag Docker image as Latest
+        run: |
+          docker tag ${{ vars.DOCKERHUB_REPOSITORY }}/api-redis-sql-rabbitmq:${{ env.version }} ${{ vars.DOCKERHUB_REPOSITORY }}/api-redis-sql-rabbitmq:latest
+        if: github.ref == 'refs/heads/main'
 
-  #       - name: Restaurar dependências
-  #         run: dotnet restore
+      - name: Docker Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  #       - name: Build do projeto
-  #         run: dotnet build --configuration Release --no-restore
-
-  #       - name: Rodar testes
-  #         run: dotnet test --configuration Release --no-build --verbosity normal
-  #         env:
-  #           ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=UsuariosDb;User Id=sa;Password=Admin@12345;TrustServerCertificate=True;"
-  #           Redis__Host: "localhost:6379"
-  #           RabbitMq__Host: "localhost"
-  #           RabbitMq__Port: "5672"
-  #           RabbitMq__User: "guest"
-  #           RabbitMq__Password: "guest"
+      - name: Docker Push
+        run: |
+          docker push --all-tags ${{ vars.DOCKERHUB_REPOSITORY }}/api-redis-sql-rabbitmq
