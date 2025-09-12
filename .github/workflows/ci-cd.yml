@@ -178,4 +178,4 @@ jobs:
 
       - name: Docker Push
         run: |
-          docker push --all-tags raphaelpereiravalle/api-redis-sql-rabbitmq
+          docker push --all-tags ${{ vars.DOCKERHUB_REPOSITORY }}/api-redis-sql-rabbitmq
